@@ -1,4 +1,4 @@
-# MCP Sample
+## MCP Sample
 
 A Rust implementation of Model Context Protocol (MCP) servers for extending AI assistant capabilities.
 
