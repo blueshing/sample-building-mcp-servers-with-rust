@@ -1,4 +1,5 @@
-// hai 02/05/2025
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 use anyhow::Result;
 use aws_config::SdkConfig;
 use aws_sdk_rds::Client;
