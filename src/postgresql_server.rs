@@ -173,27 +173,43 @@ impl PostgresOperator {
                     Ok(_) => {
                         let result = match client.query(&sql, &[]).await {
                             Ok(rows) => {
-                                // Convert rows to JSON
+                                // Helper function to convert a row to JSON with proper type handling
+                                fn row_to_json(row: &tokio_postgres::Row) -> serde_json::Value {
+                                    let mut json_row = serde_json::Map::new();
+
+                                    for (i, column) in row.columns().iter().enumerate() {
+                                        let column_name = column.name();
+
+                                        // Try different data types in order
+                                        let value = if let Ok(s) = row.try_get::<_, String>(i) {
+                                            serde_json::Value::String(s)
+                                        } else if let Ok(n) = row.try_get::<_, i64>(i) {
+                                            serde_json::json!(n)
+                                        } else if let Ok(n) = row.try_get::<_, i32>(i) {
+                                            serde_json::json!(n)
+                                        } else if let Ok(n) = row.try_get::<_, f64>(i) {
+                                            serde_json::json!(n)
+                                        } else if let Ok(b) = row.try_get::<_, bool>(i) {
+                                            serde_json::json!(b)
+                                        } else {
+                                            // If all conversions fail, include as null
+                                            tracing::debug!(
+                                                "Could not convert column {} to a known type",
+                                                column_name
+                                            );
+                                            serde_json::Value::Null
+                                        };
+
+                                        json_row.insert(column_name.to_string(), value);
+                                    }
+
+                                    serde_json::Value::Object(json_row)
+                                }
+
+                                // Convert rows to JSON using our helper function
                                 let json_rows = rows
                                     .iter()
-                                    .map(|row| {
-                                        let mut json_row = serde_json::Map::new();
-                                        for i in 0..row.len() {
-                                            if let Some(column_name) =
-                                                row.columns()[i].name().to_string().into()
-                                            {
-                                                // This is a simplification - in a real implementation,
-                                                // you would need to handle different data types properly
-                                                if let Ok(value) = row.try_get::<_, String>(i) {
-                                                    json_row.insert(
-                                                        column_name,
-                                                        serde_json::Value::String(value),
-                                                    );
-                                                }
-                                            }
-                                        }
-                                        serde_json::Value::Object(json_row)
-                                    })
+                                    .map(|row| row_to_json(row))
                                     .collect::<Vec<serde_json::Value>>();
 
                                 tracing::info!(
